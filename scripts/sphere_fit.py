@@ -6,12 +6,8 @@ from robot_vision_lectures.msg import XYZarray
 from robot_vision_lectures.msg import SphereParams
 
 # Define global variables, these are used to build A and B matricies:
-Ax = []
-Ay = []
-Az = []
-b = []
-# A = []
-
+b_data = []
+a_data = []
 received = False
 
 # Callback function to get ball data from publisher:
@@ -19,34 +15,21 @@ def get_ball_data(data):
 	
 	# Access global variables:
 	global received
-	global Ax
-	global Ay
-	global Az
-	global b
-	global A
+	global b_data
+	global a_data
 	
 	# Redefine lists as empty for each new dataset:
-	Ax = []
-	Ay = []
-	Az = []
-	b = []
-	# A = []
+	b_data = []
+	a_data = []
 	
-	# Build individual columns of A and B from subscriber data:
+	# Build data foor A and B:
 	for point in data.points:
 		
-		b.append((point.x)**2 + (point.y)**2 + (point.z)**2)
+		b_data.append((point.x)**2 + (point.y)**2 + (point.z)**2)
 		
-		# A.append([2*point.x, 2*point.y, 2*point.z, 1])
-		
-		Ax.append(2*point.x)
-		Ay.append(2*point.y)
-		Az.append(2*point.z)
-		
-		
-	if not(len(Ax) == 0 or len(Ay) == 0 or len(Az) == 0 or len(b) == 0):
+		a_data.append([2*point.x, 2*point.y, 2*point.z, 1])
 	
-		received = True
+	received = True
 
 if __name__ == '__main__':
 	
@@ -60,30 +43,24 @@ if __name__ == '__main__':
 	sphere_pub = rospy.Publisher('/sphere_params', SphereParams, queue_size = 1)
 	
 	# Set loop frequency:
-	rate = rospy.Rate(5)
-	
-	counter = 0
+	rate = rospy.Rate(10)
 	
 	while not rospy.is_shutdown():
 	
 		if received:
 			
-			#if len(Ax) == len(Ay) and len(Ay) == len(Az):
-			
-			#print("lenAx: {} lenAy: {} lenAz: {}".format(Ax.shape, len(Ay), len(Az)))
-			
 			# Define the A matrix:
-			A = np.vstack([Ax, Ay, Az, np.ones(len(Ax))]).T
+			A = np.array(a_data)
 			
-			# A = np.array(A).T
 			# Define the B matrix:
-			B = np.array([b]).T
+			B = np.array([b_data]).T
 			
-			if len(A) == len(B):
+			# Check validity of data to avoid errors:
+			if A.shape[0] == B.shape[0] and len(A.shape) == 2 and len(B.shape) == 2:
 			
+				# Calculate P:
 				P = np.linalg.lstsq(A, B, rcond=None)[0]
 			
-				
 				# Get sphere params from P:
 				xc = P[0]
 				yc = P[1]
@@ -101,7 +78,3 @@ if __name__ == '__main__':
 				
 				# Publish messge:
 				sphere_pub.publish(sphere_data)
-				
-				# Test statement:
-				counter += 1
-				print('check', counter)
