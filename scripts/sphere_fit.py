@@ -4,13 +4,13 @@ import rospy
 import numpy as np
 from robot_vision_lectures.msg import XYZarray
 from robot_vision_lectures.msg import SphereParams
-import matplotlib.pyplot as plt
 
 # Define global variables, these are used to build A and B matricies:
 Ax = []
 Ay = []
 Az = []
 b = []
+# A = []
 
 received = False
 
@@ -23,23 +23,30 @@ def get_ball_data(data):
 	global Ay
 	global Az
 	global b
+	global A
 	
 	# Redefine lists as empty for each new dataset:
 	Ax = []
 	Ay = []
 	Az = []
 	b = []
+	# A = []
 	
 	# Build individual columns of A and B from subscriber data:
 	for point in data.points:
 		
 		b.append((point.x)**2 + (point.y)**2 + (point.z)**2)
 		
+		# A.append([2*point.x, 2*point.y, 2*point.z, 1])
+		
 		Ax.append(2*point.x)
 		Ay.append(2*point.y)
 		Az.append(2*point.z)
+		
+		
+	if not(len(Ax) == 0 or len(Ay) == 0 or len(Az) == 0 or len(b) == 0):
 	
-	received = True
+		received = True
 
 if __name__ == '__main__':
 	
@@ -53,30 +60,29 @@ if __name__ == '__main__':
 	sphere_pub = rospy.Publisher('/sphere_params', SphereParams, queue_size = 1)
 	
 	# Set loop frequency:
-	rate = rospy.Rate(10)
+	rate = rospy.Rate(5)
+	
+	counter = 0
 	
 	while not rospy.is_shutdown():
 	
 		if received:
 			
-			if len(Ax) == len(Ay) and len(Ay) == len(Az):
-				# Test statement:
-				# print('A: {} B: {} C: {}'.format(len(Ax), len(Ay), len(Az)))
-				
-				# Define the A matrix:
-				A = np.vstack([Ax, Ay, Az, np.ones(len(Ax))]).T
-		
-				# Define the B matrix:
-				B = np.array([b]).T
-				
-				# Calculate the product of A^T and A:
-				ATA = np.matmul(A.T, A)
-				
-				# Calculate the product of A^T and B:
-				ATB = np.matmul(A.T, B)
-				
-				# Calculate P:
-				P = np.matmul(np.linalg.inv(ATA), ATB)
+			#if len(Ax) == len(Ay) and len(Ay) == len(Az):
+			
+			#print("lenAx: {} lenAy: {} lenAz: {}".format(Ax.shape, len(Ay), len(Az)))
+			
+			# Define the A matrix:
+			A = np.vstack([Ax, Ay, Az, np.ones(len(Ax))]).T
+			
+			# A = np.array(A).T
+			# Define the B matrix:
+			B = np.array([b]).T
+			
+			if len(A) == len(B):
+			
+				P = np.linalg.lstsq(A, B, rcond=None)[0]
+			
 				
 				# Get sphere params from P:
 				xc = P[0]
@@ -84,14 +90,18 @@ if __name__ == '__main__':
 				zc = P[2]
 				r = math.sqrt(P[3] + xc**2 + yc**2 + zc**2)
 				
-				# Get sphere params from P:
-				sphere_pub.xc = P[0]
-				sphere_pub.yc = P[1]
-				sphere_pub.zc = P[2]
-				sphere_pub.radius = math.sqrt(P[3] + xc**2 + yc**2 + zc**2)
+				# Declare variable for publisher:
+				sphere_data = SphereParams()
+				
+				# Add sphere params to publisher:
+				sphere_data.xc = xc
+				sphere_data.yc = yc
+				sphere_data.zc = zc
+				sphere_data.radius = r
 				
 				# Publish messge:
-				sphere_pub.publish()
+				sphere_pub.publish(sphere_data)
 				
 				# Test statement:
-				print('check')
+				counter += 1
+				print('check', counter)
